@@ -633,4 +633,15 @@ became a hit in Spotify in their 1st year they where released.
 Additionally, It's important to comment that this all calculations of the 1st proportions
 based on annual dates, so more detailed info could show us other results or even 
 a dependent variable like periods of time of releasing songs in each genre that 
-influenced on those results. 
+influenced on those results. Moreover, there is also the influence of the listeners 
+age. music is consumed differently based on ages of the listeners [3], so it's reasonable
+to believe it had influenced on the original proportions (maybe songs are popular because
+younger people just using Spotify more?). I'm aware of the fact that my assumptions
+here could be influenced by those potential variables, but in my opinion the overall 
+assumption is still stand - Songs genres relates to songs popularity. But of course
+the reasons to it are more intresting.
+
+
+[1] https://www.chosic.com/list-of-music-genres/
+[2] Al-Beitawi, Z., Salehan, M., & Zhang, S. (2020). What makes a song trend? Cluster analysis of musical attributes for Spotify top trending songs. Journal of Marketing Development and Competitiveness, 14(3), 79-91.
+[3] https://www.statista.com/statistics/253915/favorite-music-genres-in-the-us/
