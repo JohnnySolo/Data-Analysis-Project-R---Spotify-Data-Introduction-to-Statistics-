@@ -1,0 +1,636 @@
+---
+title: "Statistics Project - Spotify Data set"
+author: "Johnny Solomovich"
+date: '2022-05-01'
+output: html_document
+---
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+The project data set is named "Spotify 2010-1019 Top Hits list" and contains one thousand 
+observations. It is taken from Kaggle.com. 
+```{r, include=F}
+library(tidyverse)
+spotifyC <- read.csv("C:/Users/yoni5/Downloads/Spotify 2010  2019 Top 100.csv")
+```
+The main connection I will try to examine 
+is between **songs genres** and **the amount of time it takes to become a hit**. 
+The operational variables will be the main categorical genre's of songs and number 
+of years it took for the song to enter the list. 
+
+I created two new variables to examine my main connection. 
+The first variable called "General Genre". It’s a categorical variable. Due to the fact 
+that there are 89 different categorical options for the original genre in the data set, 
+I congregate most of the observations by the four main categories (Rock, Pop, EDM and Hip-Hop)
+and used Chosic.com categorization for it [9]. One hundred and seventy-four observations 
+who did not fit to any of the general genres were omitted. 
+```{r}
+# Creating the General Genre test variable:
+spotifyC$general_genre <- rep(NA,length(spotifyC$artist))
+
+spotifyC$general_genre[which(grepl(".*(rock|indie|g funk|alternative metal).*",spotifyC$top.genre))] <- "rock"
+
+spotifyC$general_genre[which(grepl(".*(pop|r&b).*",spotifyC$top.genre))] <- "pop"
+
+spotifyC$general_genre[which(grepl(".*(hip hop|rap).*",spotifyC$top.genre))] <- "hip hop"
+
+spotifyC$general_genre[which(grepl(".*(dance|electro|house|edm|big room).*",spotifyC$top.genre))] <- "dance"
+```
+One hundred and seventy-four observations 
+who did not fit to any of the general genres were omitted:
+```{r}
+spotifyC <- na.omit(spotifyC)
+```
+The second variable called "Same.diff" and it’s a binary variable. 
+It is a summation between the year the song was published and the year it entered the list 
+songs who had the same year got 0 as their score. 
+All other conditions got 1 as their score. Both years are part of the available data in the 
+data set. 
+```{r}
+#Creating the Years To the Top variable:
+spotifyC$years.to.top <- spotifyC$year.released - spotifyC$top.year
+#Creating the same or different years test variable:
+spotifyC$same.diff <-  as.numeric(cut(spotifyC$years.to.top,c(-Inf,0,Inf),c(0,1)))-1
+```
+Fifty-seven observations were omitted because of abnormal results (over 5 years or 
+a negative result. Meaning the song had entered the list before it was published). 
+Therefore, the new data set contains 763 observations.
+```{r}
+#Filtering the entire data from abnormal observations:
+spotifyC <- na.omit(filter(spotifyC,!(spotifyC$years.to.top > 5 | spotifyC$years.to.top < 0)))
+```
+I'll try to estimate the different proportions of songs that entered the list
+the same year they were released.
+```{r}
+pop     <- spotifyC[which(spotifyC$general_genre =="pop"),20]
+
+rock    <- spotifyC[which(spotifyC$general_genre=="rock"),20]
+
+hip_hop <- spotifyC[which(spotifyC$general_genre=="hip hop"),20]
+
+dance   <- spotifyC[which(spotifyC$general_genre=="dance"),20]
+
+```
+
+```{r}
+(results <- data.frame(Genre      = 
+                        c("Pop","Rock","Hip Hop","Elcetro-Dance"),
+                      N          = 
+                        c(length((pop)),
+                          length((rock)),
+                          length((hip_hop)),
+                          length((dance))),
+                      Proportion = 
+                        c(1-mean((pop)),
+                        1-mean((rock)),
+                        1-mean((hip_hop)), 
+                        1-mean((dance))),
+                      Same.year  = 
+                        c(length((pop)[which(pop==0)]),
+                         length((rock)[which(rock==0)]),
+                         length((hip_hop)[which(hip_hop==0)]),
+                         length((dance)[which(dance==0)])),
+                      Diff.year  = 
+                        c(length((pop)[which(pop>0)]),
+                         length((rock)[which(rock>0)]),
+                         length((hip_hop)[which(hip_hop>0)]),
+                         length((dance)[which(dance>0)]))))
+```
+Results: We can see that the mode value is "dance", but it's also the lowest 
+proportion of songs that entered the same year they got out. 
+```{r}
+dimnames(results)[[1]] <- c("Pop","Rock","Hip Hop", "Electro-Dance")
+mosaicplot(results[,c(4,5)], 
+           dir = c("v","h"), xlab = "Genre", ylab = "Proportions" ,
+           main = "Spotify Genre top hits proportions",color=c("darkgoldenrod","darkcyan"))
+```
+Interpretation to the Graphs: Mosaic plot is used when we have 2 categorical variables. 
+in our case it's songs general genres and same/different year to enter the list (binary).
+We can see that the proportions between the number of songs in the same year 
+(to enter the list) and the different year is different between the categories. 
+
+We'll try to see if the difference is significant by the relevant test. 
+We'll use Chi-Square test (2 categorical variables and with more than 2 categories
+in at least one of them). 
+
+```{r}
+OBS = cbind(rbind(same.year = results[,4],diff.year = results[,5],Total = results[,2]),
+  c(sum(results[,4]),sum(results[,5]),sum(results[,2])))
+`colnames<-`(OBS,c("Pop","Rock","Hip Hop", "Electro-Dance","Total"))
+
+EXP = matrix(NA,2,4)
+  
+
+for (i in 1:(length(OBS[,1])-1)){
+  for (j in 1:(length(OBS[1,])-1)){
+    EXP[i,j] = ((OBS[i,5]*OBS[3,j])/OBS[3,5])
+  }
+}
+`colnames<-`(EXP,c("Pop","Rock","Hip Hop", "Electro-Dance"))
+
+chisq.test(OBS[1:2,1:4],EXP,simulate.p.value = TRUE)
+```
+Test Result: We can see that P-value <= alpha. Therefore, we can reject the null 
+hypothesis. We can say that songs genre and number of years to get to Spotify's 
+Top Hits are dependent. 
+
+Discussion: so far we know that there's a dependency between the genres and the amount of 
+time to become a hit. Now I'll try to understand what exactly makes this difference 
+between the songs genres. 
+
+-------------------------
+
+One research on Spotify's songs suggested that high danceability scores with low 
+instrumentals scores related to songs success in songs charts [10]. 
+
+We don't have a variable who is related directly to how much the song is focused on 
+instrumentals, but we do have the dnce quantitative variable (description: How easy 
+it is to dance to the song?). 
+
+Additionally, from my intuition EDM and rock songs (the dance genre) using more
+instrumentals than in pop and hip-hop songs.  
+
+Therefore, we will try to see if there is a difference between songs general genres
+by the dnce variable, while we try to see if the difference is according to my intuition
+(rock and EDM will have different results than hip-hop and pop songs).
+
+-------------------------
+
+First of all, we need to see if the observations of dnce are distributed normally:
+```{r}
+#Normality Check:
+ggplot(data.frame(y = spotifyC$dnce), aes(sample = y)) +
+#  facet_wrap(~spotifyC$general_genre,nrow=2) +
+  stat_qq() +  
+  stat_qq_line() + 
+    ggtitle("Normaility test for the dnce observations") +
+  xlab("Z Quantities") + 
+  ylab("Sampled Quantiles (dnce)") + 
+  theme(plot.title=element_text(hjust=0.5))
+```
+Decision: The observations distributed different from the normal distribution. 
+It's dispersed more than the normal distribution, so it could indicate the dnce 
+observations distributed t with 686 df. I prefer not to do Chi-square for 
+goodness of fit because it's not offers me much in return in this case. I'd rather
+not assume anything on the distribution of the observation and do a-parametric test.
+
+Therefore, I'll use Wilcoxon Rank Sum Test.
+
+# Descriptive Statistics:
+```{r}
+
+```
+# Graph:
+```{r}
+ggplot(spotifyC,aes(dnce,general_genre)) +
+  geom_boxplot() + 
+  ggtitle("dnce score by General Genre") +
+  xlab("dnce score") + 
+  ylab("Genre") + 
+  coord_flip() +
+  theme(plot.title=element_text(hjust=0.5))
+```
+Interpretation: We can see there is a difference between the different genres and
+specifically between EDM and Rock  as opposed to hip-hop and pop songs. 
+
+Now I'll try to see if there is a difference between EDM and 
+pop or Hip-Hop and between Rock and Pop or Hip Hop. 
+
+I'll also do Holm correction for each of the 4C2 combinations of the song's 
+general genres. 
+```{r}
+P.value.dnce = c()
+
+P.value.dnce[1] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"],spotifyC$dnce[spotifyC$general_genre=="rock"])$p.value
+
+P.value.dnce[2] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"],spotifyC$dnce[spotifyC$general_genre=="dance"])$p.value
+
+P.value.dnce[3] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"],spotifyC$dnce[spotifyC$general_genre=="hip hop"])$p.value
+
+P.value.dnce[4] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"],spotifyC$dnce[spotifyC$general_genre=="rock"])$p.value
+
+P.value.dnce[5] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"],spotifyC$dnce[spotifyC$general_genre=="hip hop"])$p.value
+
+P.value.dnce[6] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="rock"],spotifyC$dnce[spotifyC$general_genre=="hip hop"])$p.value
+
+data.frame(p.value = p.adjust(sort(P.value.dnce), method = "holm"),
+           a = c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1), 
+           reject = c(p.adjust(sort(P.value.dnce), method = "holm")
+                      <=c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1)))
+```
+Results: We can see that the adjusted P-value <= adjusted alpha. Therefore, we can 
+reject the null hypothesis for all, expect for (pop vs dance). 
+We can say that the songs dnce expected values are different.
+
+However, the order of the averages is not like the order of the proportions in the
+results data frame. Therefore, I'll assume that there is another variable who is
+influencing on the amount of time it takes to a song to become a hit. 
+
+One of the qualitative variables in our data is pop (Popularity score of the song - 
+not a ranking). Moreover, the average scores by general genres in at the same order
+as the proportion from results (data frame). 
+```{r,include=FALSE}
+ggplot(spotifyC,aes(dnce,general_genre)) +
+  facet_wrap(~spotifyC$same.diff,nrow = 2) +
+  geom_boxplot() + 
+  ggtitle("dnce score by General Genre") +
+  xlab("dnce score") + 
+  ylab("Genre") + 
+  coord_flip() +
+  theme(plot.title=element_text(hjust=0.5))
+
+
+(dnce.avg = data.frame(Genre      = 
+                        c("Pop","Rock","Hip Hop","Elcetro-Dance"),
+                      N          = 
+                        c(length((spotifyC[which(spotifyC$general_genre=="dance"),8])),
+                          length((spotifyC[which(spotifyC$general_genre=="rock"),8])),
+                          length((spotifyC[which(spotifyC$general_genre=="pop"),8])),
+                          length((spotifyC[which(spotifyC$general_genre=="hip hop"),8]))),
+                      dnce.avg = 
+                        c(mean((spotifyC[which(spotifyC$general_genre=="dance"),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="rock"),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="pop"),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="hip hop"),8]))),
+                      Same.year  = 
+                        c(mean((spotifyC[which(spotifyC$general_genre=="dance" &
+                                                       spotifyC$same.diff==0),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="rock" &
+                                                       spotifyC$same.diff==0),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="pop" &
+                                                       spotifyC$same.diff==0),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="hip hop" &
+                                                       spotifyC$same.diff==0),8]))),
+                      Diff.year  = 
+                        c(mean((spotifyC[which(spotifyC$general_genre=="dance" &
+                                                       spotifyC$same.diff==1),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="rock" &
+                                                       spotifyC$same.diff==1),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="pop" &
+                                                       spotifyC$same.diff==1),8])),
+                          mean((spotifyC[which(spotifyC$general_genre=="hip hop" &
+                                                       spotifyC$same.diff==1),8])))))
+```
+```{r,include=FALSE}
+#Normality Tests:
+ggplot(data.frame(y = spotifyC$dnce[which(spotifyC$same.diff==0)]), aes(sample = y)) +
+  stat_qq() + 
+  stat_qq_line() + 
+    ggtitle("Normaility test for the dnce observations") +
+  xlab("Z Quantities") + 
+  ylab("Sampled Quantiles (dnce)") + 
+  theme(plot.title=element_text(hjust=0.5))
+
+ggplot(data.frame(y = spotifyC$dnce[which(spotifyC$same.diff==1)]), aes(sample = y)) +
+  stat_qq() + 
+  stat_qq_line() + 
+    ggtitle("Normaility test for the dnce observations") +
+  xlab("Z Quantities") + 
+  ylab("Sampled Quantiles (dnce)") + 
+  theme(plot.title=element_text(hjust=0.5))
+
+
+P.value.dnce.0 = c()
+
+P.value.dnce.0[1] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="rock"&
+                                                 spotifyC$same.diff==0])$p.value
+
+P.value.dnce.0[2] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==0])$p.value
+
+P.value.dnce.0[3] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==0])$p.value
+
+P.value.dnce.0[4] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="rock"
+                                              &spotifyC$same.diff==0])$p.value
+
+P.value.dnce.0[5] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==0])$p.value
+
+P.value.dnce.0[6] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="rock"
+                                              &spotifyC$same.diff==0],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==0])$p.value
+
+data.frame(p.value = p.adjust(sort(P.value.dnce.0), method = "holm"),
+           a = c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1), 
+           reject = c(p.adjust(sort(P.value.dnce.0), method = "holm")
+                      <=c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1)))
+
+
+P.value.dnce.1 = c()
+
+P.value.dnce.1[1] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="rock"&
+                                                 spotifyC$same.diff==1])$p.value
+
+P.value.dnce.1[2] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==1])$p.value
+
+P.value.dnce.1[3] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="pop"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==1])$p.value
+
+P.value.dnce.1[4] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="rock"
+                                              &spotifyC$same.diff==1])$p.value
+
+P.value.dnce.1[5] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="dance"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==1])$p.value
+
+P.value.dnce.1[6] = wilcox.test(spotifyC$dnce[spotifyC$general_genre=="rock"
+                                              &spotifyC$same.diff==1],
+                                spotifyC$dnce[spotifyC$general_genre=="hip hop"
+                                              &spotifyC$same.diff==1])$p.value
+
+data.frame(p.value = p.adjust(sort(P.value.dnce.1), method = "holm"),
+           a = c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1), 
+           reject = c(p.adjust(sort(P.value.dnce.1), method = "holm")
+                      <=c(0.05/6,0.05/5,0.05/4,0.05/3,0.05/2,0.05/1)))
+```
+```{r}
+
+ pop.avg = 
+                        c(mean((spotifyC[which(spotifyC$general_genre=="dance"),15])),
+                          mean((spotifyC[which(spotifyC$general_genre=="rock"),15])),
+                          mean((spotifyC[which(spotifyC$general_genre=="pop"),15])),
+                          mean((spotifyC[which(spotifyC$general_genre=="hip hop"),15])))
+```
+Therefore, I'll try to see if dnce 
+scores are also correlated to pop scores. If there is a correlation, we could assume
+that dnce scores are correlated with the popularity scores that Spotify gives to each
+song. 
+```{r}
+#function that add the linear model equation to the plot:
+lm_eqn <- function(df){
+m <- lm(df[,1] ~ df[,2], df);
+eq <- substitute("Least Squares:"~~italic(y) == a + b %.% italic(x),
+list(a = format(unname(coef(m)[1]), digits = 2),
+b = format(unname(coef(m)[2]), digits = 2)))
+as.character(as.expression(eq))}
+```
+```{r}
+#function that add Tukey model equation to the plot:
+myTukeyRL <- function(x,y){
+#Dividing the X vector to 3 quantiles:
+quants <- quantile(x, c(1/3, 2/3), type = 6)
+#Finding the Y-low and Y-high:
+y_anchor <- c(median(y[x <= quants[1]]), median(y[x > quants[2]]))
+#Finding the X-low and X-high:
+x_anchor <- c(median(x[x <= quants[1]]), median(x[x > quants[2]]))
+#Finding our slope(betaRL) and X-intercept(alphaRL):
+betaRL <- (y_anchor[2] - y_anchor[1]) / (x_anchor[2] - x_anchor[1])
+alphaRL <- median(y - betaRL * x)
+#Returning the RL-variables:
+return(c(betaRL, alphaRL))
+}
+```
+Our Intercepts and the slopes for each line:
+```{r}
+lm(spotifyC$dnce~spotifyC$pop)
+(lm_res <- myTukeyRL(spotifyC$dnce,spotifyC$pop))
+```
+```{r}
+ggplot(spotifyC,aes(dnce,pop)) +
+  geom_point(size = 2, alpha = 0.75) + 
+  geom_abline(colour = "royalblue3", size = 0.75) +
+  geom_abline(intercept=lm_res[2],slope=lm_res[1],
+    colour = "firebrick3", size = 0.75) +
+  geom_text(x = 60, y = 45,
+          label = lm_eqn(data.frame(dnce = spotifyC$dnce,
+                                    pop = spotifyC$pop)),
+    colour = "royalblue3", parse = TRUE) +
+  geom_text(x = 30, y = 68,
+    label = as.character(as.expression(substitute("Resistant Line:"~~
+    italic(y) == 69.83 + 0.083 %.% italic(x)))),
+    colour = "firebrick3",parse = TRUE) +
+  ggtitle("dnce score by pop scores") +
+  xlab("dnce score") + 
+  ylab("pop scores") + 
+  theme(plot.title=element_text(hjust=0.5))
+```
+
+Now I'll do a residual charts to each line to see if they both suitable to explain 
+this plot.
+```{r, include=FALSE}
+spotify.reg = data.frame(pop.short = (spotifyC[which(spotifyC$pop>=80),8]),
+           dnce.short = (spotifyC[which(spotifyC$pop>=80),15]))
+
+ggplot(spotify.reg,aes(dnce.short,pop.short)) +
+  geom_point(size = 2, alpha = 0.75) + 
+  geom_abline(colour = "royalblue3", size = 0.75) +
+  geom_abline(intercept=lm_res[2],slope=lm_res[1],
+    colour = "firebrick3", size = 0.75) +
+  geom_text(x = 90, y = 88,
+          label = lm_eqn(data.frame(dnce = spotifyC$dnce,
+                                    pop = spotifyC$pop)),
+    colour = "royalblue3", parse = TRUE) +
+  geom_text(x = 90, y = 68,
+    label = as.character(as.expression(substitute("Resistant Line:"~~
+    italic(y) == 69.83 + 0.083 %.% italic(x)))),
+    colour = "firebrick3",parse = TRUE) +
+  ggtitle("dnce score by pop scores") +
+  xlab("dnce score") + 
+  ylab("pop scores") + 
+  theme(plot.title=element_text(hjust=0.5))
+```
+
+```{r}
+lm_dat <- data.frame(residuals=lm(spotifyC$dnce~spotifyC$pop)$residuals,
+                     Yi=spotifyC$pop)
+
+ggplot(lm_dat,aes(lm_dat[,2],lm_dat[,1])) +
+geom_point(size = 2, alpha = 0.75) +
+geom_hline(colour = "royalblue3", yintercept = 0) +
+ggtitle("Residuals by pop scores") +
+xlab("Residuals") +
+ylab("pop scores") +
+theme(plot.title=element_text(hjust=0.5))
+
+RL.res <- spotifyC$pop - (lm_res[2] + lm_res[1] * spotifyC$dnce)
+
+suppressWarnings(print(
+ggplot(lm_dat ,aes(lm_dat[,2],RL.res)) +
+geom_point(colour = "grey24", size = 2, alpha = 0.4) +
+geom_hline(colour = "firebrick3", yintercept = 0) +
+ggtitle("Resistant Line Residuals") +
+ylab("Residuals") +
+xlab("pop scores") +
+theme(plot.title=element_text(hjust=0.5))
+))
+```
+Interpretation: We can clearly see that there is a connection between the residuals
+of the pop scores from the RL line, so we can't explain it with a linear model.
+However, we can do it with the least squares line, even though it seems like it's 
+not the best idea. Therefore, I'll at least try and test the line slope to see if 
+it can explain a correlation between the dnce scores and the pop scores.
+```{r}
+summary(lm(spotifyC$dnce~spotifyC$pop))
+```
+Results: We got P-value < 0.01, so it's not that common to get this slope for this 
+amount of observations.
+
+However, it doesn't seem like it shows a real correlation between the two variables.
+I'll try it by another way - I'll create Intervals of the dnce scores and see if I
+can recognize connection between the variables. by the previous plot we can argue that
+we see three different sub-groups of observations (by dnce scores) together: 40-60,
+60-80 and 80-Inf. we'll see if there is a correlation of it with the proportions
+from results (data-frame).
+
+```{r}
+results.2 <- data.frame(genre = c("dance","rock","pop","hip-hop"),
+           n.40.60 = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>40 & spotifyC$pop<60),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>40 & spotifyC$pop<60),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>40 & spotifyC$pop<60),15])),
+                      length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>40 & spotifyC$pop<60),15]))),
+           n.60.80 = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=80),15]))),
+           n.80.inf = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=80),15]))),
+           p.60.Inf.vs.80.Inf = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=80),15]))/
+                                   length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=60),15])),
+                                 length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=80),15]))/
+                                   length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=60),15])),
+                                 length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=80),15]))/
+                                   length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=60),15])),
+                                 length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=80),15]))/
+                                   length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=60),15]))
+                                   ))
+```
+Now we can see that the ranking of the proportions from the first analysis is the same
+as here. Most of the observations got 60 or more in the pop score, 
+but The proportions in here suggest that the genres who were found with higher proportion
+of songs that became a hit in their first year, has also more songs who got 80 or more 
+in the pop scores and they are also a part of the interval [80-Inf) dnce scores.
+
+I'll try to test those frequencies with the suitable test for it. For alpha of 0.05
+I'll test if the pop scores and the dnce scores are dependant. the null-hypothesis 
+is that they aren't.
+```{r}
+OBS.dnce.pop = data.frame(genre = c("dance","rock","pop","hip-hop"),
+           n.60.80 = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=60 & spotifyC$pop<80),15]))),
+           n.80.inf = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=80),15])),
+                       length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=80),15]))),
+           Total = c(length((spotifyC[which(spotifyC$general_genre=="dance"
+                                      &spotifyC$pop>=60),15])),
+           length((spotifyC[which(spotifyC$general_genre=="rock"
+                                      &spotifyC$pop>=60),15])),
+           length((spotifyC[which(spotifyC$general_genre=="pop"
+                                      &spotifyC$pop>=60),15])),
+           length((spotifyC[which(spotifyC$general_genre=="hip hop"
+                                      &spotifyC$pop>=60),15]))))
+```
+```{r}
+OBS.dnce.pop[5,] <- c(NA,length((spotifyC[which(spotifyC$pop>=60 & spotifyC$pop<80),15])),length((spotifyC[which(spotifyC$pop>=80),15])),
+        length((spotifyC[which(spotifyC$pop>=60),15])))
+
+EXP.dnce.pop = matrix(NA,5,3)
+  
+
+for (i in 1:(length(OBS.dnce.pop[,1])-1)){
+  for (j in 2:(length(OBS.dnce.pop[1,])-1)){
+    EXP.dnce.pop[i,j] = ((OBS.dnce.pop[i,4]*OBS.dnce.pop[5,j])/OBS.dnce.pop[5,4])
+  }
+}
+`colnames<-`(OBS.dnce.pop,c("Pop","Rock","Hip Hop", "Electro-Dance"))
+
+chisq.test(OBS.dnce.pop[1:4,2:3],EXP.dnce.pop[1:4,2:3],simulate.p.value = TRUE)
+
+dimnames(results.2)[[1]] <- c("Electro-Dance","rock","Pop","Hip Hop")
+mosaicplot(results.2[,c(3,4)], 
+           dir = c("v","h"), xlab = "Genre", ylab = "Proportions" ,
+           main = "Dependency between dnce scores and pop scores",
+           color=c("darkgoldenrod","darkcyan"))
+```
+Test Result: We can see that P-value <= alpha. Therefore, we can reject the null 
+hypothesis. We can say that songs pop scores and the dnce scores (by intervals) 
+are dependent.
+
+Summary: This projects is based on two parts. 
+first of all, to show that the amount of time to become a hit song in Spotify depends on
+the song genre. I calculated how many songs, from each general genre, were hits in 
+their 1st year. In my surprise, EDM songs had the lowest proportion (I believed that based
+on the fact it's a popular genre in this age, they'll had better score). Moreover, 
+in my surprise pop songs weren't at the top either. So The second part was to try and 
+find if there are variables in the data set who can show the same proportion of success 
+from the first part (EDM, Rock, Pop, Hip-Hop) and then have some info to make more sensible
+conclusions. I tried to show that songs general genre has different danceability (dnce) scores 
+averages. The results showed it was right, but not in the way I suspected it would be 
+(similar to the proportions before). I believed dnce scores do have an influence 
+on those scores somehow, so I wanted to test it with another variable and chose the 
+one who is suspicious enough to influence on the original proportions - popularity 
+scores. In my opinion, even though the correlation slope had low p-value, I believed 
+there's another option to see if there is a connection between the variables and the 
+original proportions. I aggregated the observations by 3 intervals I created by 
+the look of them in the plot and found that most of the observations has dnce score of 
+60 and beyond. so I wanted to see how many of those are also in the 80 and beyond group.
+Apparently, the proportions of the 80 and beyond from the rest are ranked the same as
+the original proportions. 
+
+In my opinion, it could suggest that from some dnce score threshold, you'll become
+a hit song, but you also need a higher score in popularity to enter in the same 
+year you got out. EDM songs has a lot of songs that will be considered danceable, 
+but not all of them are big time hits who will enter the list in their 1st year.
+It's noteworthy to point out that hip-hop songs has the best highest proportion
+of success and the best proportion of most songs who has high dnce scores (80 or more) 
+and pop scores (80 or more). It will be interesting to search why hip-hop songs 
+are so popular and danceable to the point that most of the songs that got out also
+became a hit in Spotify in their 1st year they where released. 
+Additionally, It's important to comment that this all calculations of the 1st proportions
+based on annual dates, so more detailed info could show us other results or even 
+a dependent variable like periods of time of releasing songs in each genre that 
+influenced on those results. 
