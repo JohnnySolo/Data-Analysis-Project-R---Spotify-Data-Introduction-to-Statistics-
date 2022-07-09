@@ -1,8 +1,7 @@
 ---
 title: "Statistics Project - Spotify Data set"
 author: "Johnny Solomovich"
-date: '2022-05-01'
-output: html_document
+date: '2022-06-01'
 ---
 ```{r, include=FALSE}
 options(tinytex.verbose = TRUE)
