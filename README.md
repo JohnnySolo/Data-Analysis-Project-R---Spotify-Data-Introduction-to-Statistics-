@@ -1,4 +1,4 @@
-# individual-Statistics-Projects  
+# Data Analysis Project (in R) - Spotify hit songs (Introduction to Statistics)   
 That's my 1st EDA project, based on my main 1st year university course - Introduction to Statistics.   
 I used most of the main subjects I learned in my 1st year (Mentioned in Topics).  
 
