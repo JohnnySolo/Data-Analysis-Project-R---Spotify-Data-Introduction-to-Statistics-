@@ -21,7 +21,7 @@ I created two new variables to examine my main connection.
 The first variable called "General Genre". It’s a categorical variable. Due to the fact 
 that there are 89 different categorical options for the original genre in the data set, 
 I congregate most of the observations by the four main categories (Rock, Pop, EDM and Hip-Hop)
-and used Chosic.com categorization for it [9]. One hundred and seventy-four observations 
+and used Chosic.com categorization for it [1]. One hundred and seventy-four observations 
 who did not fit to any of the general genres were omitted. 
 ```{r}
 # Creating the General Genre test variable:
@@ -140,7 +140,7 @@ between the songs genres.
 -------------------------
 
 One research on Spotify's songs suggested that high danceability scores with low 
-instrumentals scores related to songs success in songs charts [10]. 
+instrumentals scores related to songs success in songs charts [2]. 
 
 We don't have a variable who is related directly to how much the song is focused on 
 instrumentals, but we do have the dnce quantitative variable (description: How easy 
